@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Tokamak Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h2>Plasma Disruption Telemetry</h2>
+    
+    <div class="dashboard-container">
+        <!-- Left Side: Stacked Charts -->
+        <div class="left-col">
+            <div class="chart-wrapper">
+                <canvas id="riskChart"></canvas>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="telemetryChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Right Side: Action Log -->
+        <div class="right-col">
+            <h3>Automated Mitigation Log</h3>
+            <div id="action-log"></div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

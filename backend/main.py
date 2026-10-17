@@ -147,12 +147,27 @@ async def health_check():
 async def websocket_endpoint(websocket: WebSocket):
     """Real-time telemetry WebSocket streaming endpoint."""
     await manager.connect(websocket)
-    try:
-        while True:
-            # Keep connection open and yield control to loop
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
+    while True:
+        try:
+            # Fetch 20ms slice
+            batch = streamer.fetch_next_20ms_window()
+            
+            # Predict risk
+            risk = engine.predict_disruption_risk(torch.from_numpy(batch))
+            
+            # Send only the data required for the frontend graphs
+            await websocket.send_json({
+                "timestamp": time.time(),
+                "risk": float(risk),
+                "telemetry": {
+                    "ip_current": float(batch[0, -1, 0]),
+                    "electron_temp": float(batch[0, -1, 1])
+                }
+            })
+            
+            await asyncio.sleep(0.02)
+        except Exception:
+            break
 
 
 if __name__ == "__main__":
