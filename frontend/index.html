@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-<<<<<<< HEAD
 <html>
 <head>
     <title>Tokamak Dashboard</title>
@@ -8,6 +7,12 @@
 </head>
 <body>
     <h2>Plasma Disruption Telemetry</h2>
+    
+    <!-- ADDED: Status and Risk Score Header -->
+    <div class="status-header" style="display: flex; justify-content: space-between; align-items: center; background: #1e1e1e; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #333;">
+        <div id="status-indicator" class="status-box" style="padding: 10px 20px; border-radius: 4px; font-weight: bold; letter-spacing: 1px;">INITIALIZING...</div>
+        <div class="risk-display" style="font-size: 24px; font-family: monospace;">Risk Score: <span id="risk-score">0.0%</span></div>
+    </div>
     
     <div class="dashboard-container">
         <!-- Left Side: Stacked Charts -->
@@ -29,71 +34,4 @@
 
     <script src="app.js"></script>
 </body>
-=======
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tokamak Disruption Predictor - IBM Z</title>
-    <link rel="stylesheet" href="styles.css">
-    <!-- Chart.js for telemetry visualization -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
-
-<body>
-    <header class="dashboard-header">
-        <div class="header-title">
-            <h1>PLASMA DISRUPTION PREDICTOR</h1>
-            <span class="hardware-tag">RUNNING ON IBM Z LINUXONE</span>
-        </div>
-        <div class="header-status">
-            WebSocket: <span id="ws-status" class="text-green">CONNECTING...</span>
-        </div>
-    </header>
-
-    <main class="dashboard-grid">
-        <!-- Left Column: Core Telemetry & Status -->
-        <section class="panel telemetry-panel">
-            <h2>SYSTEM STATUS</h2>
-
-            <div id="status-indicator" class="status-box bg-green text-white">
-                INITIALIZING...
-            </div>
-
-            <div class="risk-container">
-                <h3>DISRUPTION PROBABILITY</h3>
-                <div id="risk-score" class="risk-value">0.0%</div>
-            </div>
-
-            <div class="charts-container">
-                <h3>LIVE TELEMETRY (500ms Throttle)</h3>
-                <div class="chart-box">
-                    <canvas id="ip-chart"></canvas>
-                    <div class="chart-label">Plasma Current (Ip)</div>
-                </div>
-                <div class="chart-box">
-                    <canvas id="te-chart"></canvas>
-                    <div class="chart-label">Electron Temperature (Te)</div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Right Column: Automated Action Log -->
-        <section class="panel log-panel">
-            <h2>AUTOMATED MITIGATION LOG</h2>
-            <div id="action-log" class="log-container">
-                <!-- Log entries will be prepended here by app.js -->
-                <div class="log-entry severity-nominal">
-                    <span class="text-muted">Awaiting telemetry stream...</span>
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <!-- Load the WebSocket and UI logic -->
-    <script src="app.js"></script>
-</body>
-
->>>>>>> 80dee154d3873527917261070da124ad745c77f8
 </html>
