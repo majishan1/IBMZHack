@@ -41,6 +41,22 @@ To start the backend and dashboard, train first, then run `./start.sh`. If the
 checkpoint is absent, set `TOKAMAK_TRAINING_DATA` to the `.npz` dataset path and
 the startup script will train before launching the services.
 
+### Dashboard demo (synthetic data)
+
+Demo mode is enabled by default and generates randomized, bounded synthetic
+diagnostics with nominal, tearing, critical, and recovery behavior. Start the
+backend and serve the frontend separately:
+
+```bash
+python3 -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+python3 -m http.server 3000 --directory frontend
+```
+
+Open `http://127.0.0.1:3000`. The dashboard marks the signals as synthetic demo
+data; risk scores and mitigation suggestions are illustrative, not model
+predictions, and must not be used for control. Set `TOKAMAK_DEMO_MODE=0` to
+attempt live MDSplus/model mode.
+
 This is a research prototype: validation metrics are not a substitute for
 physics review, independent evaluation, or a safety-qualified control system.
 The mitigation rules are suggestions and must not be connected directly to

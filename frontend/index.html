@@ -6,15 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tokamak Disruption Predictor - IBM Z</title>
     <link rel="stylesheet" href="styles.css">
-    <!-- Chart.js for telemetry visualization -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
     <header class="dashboard-header">
         <div class="header-title">
             <h1>PLASMA DISRUPTION PREDICTOR</h1>
-            <span class="hardware-tag">RUNNING ON IBM Z LINUXONE</span>
+            <span id="mode-tag" class="hardware-tag">CONNECTING TO TELEMETRY</span>
         </div>
         <div class="header-status">
             WebSocket: <span id="ws-status" class="text-green">CONNECTING...</span>
@@ -36,7 +34,7 @@
             </div>
 
             <div class="charts-container">
-                <h3>LIVE TELEMETRY (500ms Throttle)</h3>
+                <h3>TELEMETRY (500ms DISPLAY REFRESH)</h3>
                 <div class="chart-box">
                     <canvas id="ip-chart"></canvas>
                     <div class="chart-label">Plasma Current (Ip)</div>

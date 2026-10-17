@@ -3,11 +3,16 @@
 // ==============================================================================
 let latestPayload = null;
 let currentSeverityState = "NOMINAL";
+let hasReceivedTelemetry = false;
 
 // DOM Elements
 const riskScoreDisplay = document.getElementById("risk-score");
 const statusIndicator = document.getElementById("status-indicator");
 const actionLogContainer = document.getElementById("action-log");
+const websocketStatus = document.getElementById("ws-status");
+const modeTag = document.getElementById("mode-tag");
+const history = { ip: [], te: [] };
+const historyLimit = 60;
 
 // ==============================================================================
 // 2. WEBSOCKET LISTENER (Runs at 50Hz / 20ms)
@@ -16,16 +21,31 @@ function connectWebSocket() {
     // Connect to the FastAPI backend
     const ws = new WebSocket("ws://localhost:8000/ws/telemetry");
 
-    ws.onopen = () => console.log("[WebSocket] Connected to IBM Z Backend");
+    ws.onopen = () => {
+        websocketStatus.innerText = "CONNECTED";
+        websocketStatus.className = "text-green";
+        console.log("[WebSocket] Connected to backend");
+    };
 
     ws.onmessage = (event) => {
         // Silently update the memory state as fast as packets arrive
-        latestPayload = JSON.parse(event.data);
+        try {
+            latestPayload = JSON.parse(event.data);
+        } catch (error) {
+            console.error("[WebSocket] Ignoring invalid telemetry payload", error);
+        }
     };
 
     ws.onclose = () => {
+        websocketStatus.innerText = "DISCONNECTED - RECONNECTING";
+        websocketStatus.className = "text-muted";
         console.warn("[WebSocket] Disconnected. Reconnecting in 2s...");
         setTimeout(connectWebSocket, 2000);
+    };
+
+    ws.onerror = () => {
+        websocketStatus.innerText = "CONNECTION ERROR";
+        websocketStatus.className = "text-muted";
     };
 }
 
@@ -34,10 +54,17 @@ function connectWebSocket() {
 // ==============================================================================
 function updateDashboard() {
     if (!latestPayload) return;
+    if (!hasReceivedTelemetry) {
+        actionLogContainer.replaceChildren();
+        hasReceivedTelemetry = true;
+    }
 
     // 1. Update Core Telemetry & Risk Score
     const riskPercentage = (latestPayload.risk * 100).toFixed(1);
     riskScoreDisplay.innerText = `${riskPercentage}%`;
+    modeTag.innerText = latestPayload.mode === "demo"
+        ? "DEMO DATA - SYNTHETIC, NOT FOR CONTROL"
+        : "LIVE MODEL OUTPUT";
 
     // 2. Determine Highest Severity in Current Actions
     const actions = latestPayload.actions;
@@ -56,12 +83,59 @@ function updateDashboard() {
         currentSeverityState = highestSeverity;
     }
 
-    // (Optional) Update Chart.js instances here using latestPayload.telemetry
+    const telemetry = latestPayload.telemetry;
+    appendHistory(history.ip, telemetry.ip_current);
+    appendHistory(history.te, telemetry.electron_temp);
+    drawTelemetryChart("ip-chart", history.ip, "Plasma Current (Ip)", "#38bdf8");
+    drawTelemetryChart("te-chart", history.te, "Electron Temperature (Te)", "#fbbf24");
 }
 
 // ==============================================================================
 // 4. HELPER FUNCTIONS
 // ==============================================================================
+function appendHistory(values, value) {
+    if (!Number.isFinite(value)) return;
+    values.push(value);
+    if (values.length > historyLimit) values.shift();
+}
+
+function drawTelemetryChart(canvasId, values, label, color) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas || values.length === 0) return;
+
+    const context = canvas.getContext("2d");
+    const bounds = canvas.getBoundingClientRect();
+    const pixelRatio = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.round(bounds.width * pixelRatio));
+    canvas.height = Math.max(1, Math.round(bounds.height * pixelRatio));
+    context.scale(pixelRatio, pixelRatio);
+
+    const width = bounds.width;
+    const height = bounds.height;
+    const padding = { top: 28, right: 12, bottom: 12, left: 12 };
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = max - min || Math.max(Math.abs(max) * 0.1, 1);
+    const plotHeight = height - padding.top - padding.bottom;
+
+    context.clearRect(0, 0, width, height);
+    context.fillStyle = "#9ca3af";
+    context.font = '12px "MS Courier New", "Courier New", Courier, monospace';
+    context.fillText(`${label}: ${values[values.length - 1].toFixed(3)}`, padding.left, 17);
+
+    context.strokeStyle = color;
+    context.lineWidth = 2;
+    context.beginPath();
+    values.forEach((value, index) => {
+        const x = padding.left + index * (width - padding.left - padding.right)
+            / Math.max(values.length - 1, 1);
+        const y = padding.top + (max - value) / range * plotHeight;
+        if (index === 0) context.moveTo(x, y);
+        else context.lineTo(x, y);
+    });
+    context.stroke();
+}
+
 function updateVisualTheme(severity) {
     // Reset classes
     statusIndicator.className = "status-box";
@@ -106,6 +180,9 @@ function logMitigationActions(actions, severity, unixTimestamp) {
 
         // Prepend to show newest events at the top
         actionLogContainer.prepend(logEntry);
+        while (actionLogContainer.children.length > 100) {
+            actionLogContainer.lastElementChild.remove();
+        }
     });
 }
 

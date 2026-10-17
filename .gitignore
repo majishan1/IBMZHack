@@ -1,3 +1,5 @@
 IBMZDatathon.pem
 checkpoints/
 *.npz
+__pycache__/
+*.py[cod]
