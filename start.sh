@@ -5,20 +5,23 @@ set -e
 
 echo "=========================================================="
 echo "  STARTING TOKAMAK PLASMA DISRUPTION PREDICTOR SYSTEMS   "
-echo "  IBM Z LinuxONE Accelerator Environment                 "
+echo "  CPU PyTorch Runtime (including IBM Z LinuxONE)         "
 echo "=========================================================="
 
 # 1. HARDWARE & THREAD CONFIGURATION
-export ZAIUDEVICES=1
 export OMP_NUM_THREADS=4
-echo "[+] Hardware acceleration enabled: ZAIUDEVICES=1"
 echo "[+] PyTorch OMP threads locked to: 4"
 
 # 2. CHECK FOR TRAINED MODEL
 if [ ! -f "checkpoints/compiled_lstm.pt" ]; then
-    echo "[-] WARNING: 'checkpoints/compiled_lstm.pt' not found!"
-    echo "[!] Running model/train.py first to compile TorchScript weights..."
-    python3 model/train.py
+    if [ -z "${TOKAMAK_TRAINING_DATA:-}" ]; then
+        echo "[-] No trained model or TOKAMAK_TRAINING_DATA provided."
+        echo "[!] Train first with: python3 -m model.train --data <dataset.npz>"
+        echo "[!] Or set TOKAMAK_TRAINING_DATA to that NPZ file before starting."
+        exit 1
+    fi
+    echo "[+] Training from ${TOKAMAK_TRAINING_DATA}..."
+    python3 -m model.train --data "${TOKAMAK_TRAINING_DATA}"
 fi
 
 # 3. CLEAN PROCESS TEARDOWN ON EXIT

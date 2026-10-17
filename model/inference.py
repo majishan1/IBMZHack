@@ -1,63 +1,41 @@
-import os
+from pathlib import Path
 import torch
 from typing import Tuple
 
-# ==============================================================================
-# 1. IBM Z LINUXONE & TELUM HARDWARE OPTIMIZATIONS
-# ==============================================================================
-# Force routing of PyTorch matrix operations to IBM Z Integrated Accelerator (Telum)
-os.environ["ZAIUDEVICES"] = "1"
-
-# Limit CPU threading pool to avoid context-switching overhead with FastAPI/Uvicorn
-# LinuxONE handles high core counts; tuning execution worker threads yields best latency
+# Keep CPU inference bounded on IBM Z LinuxONE and other CPU-only installations.
 torch.set_num_threads(4)
-torch.set_num_interop_threads(2)
-
-# Disable memory profiling and legacy autograd flags for absolute maximum speed
-torch.autograd.set_detect_anomaly(False)
-torch.autograd.profiler.profile(enabled=False)
-torch.autograd.profiler.emit_nvtx(enabled=False)
 
 # ==============================================================================
 # 2. INFERENCE ENGINE CLASS
 # ==============================================================================
 class OptimizedInferenceEngine:
-    """High-performance PyTorch inference wrapper for sub-millisecond 20ms tokamak loops.
+    """PyTorch inference wrapper for the 20ms tokamak telemetry loop.
 
-    Uses TorchScript tracing and inference mode to bypass Python runtime overhead.
+    Uses the trained TorchScript model on CPU; this code does not enable or verify
+    a Telum Integrated Accelerator runtime.
     """
 
     def __init__(self, model_path: str = "checkpoints/compiled_lstm.pt", input_shape: Tuple[int, int, int] = (1, 10, 5)):
         self.input_shape = input_shape
-        # IBM Z uses optimized s390x CPU/Telum backend, which is accessed via the CPU device
-        self.device = torch.device("cpu")  
+        self.device = torch.device("cpu")
+        resolved_model_path = Path(model_path)
+        if not resolved_model_path.is_absolute():
+            resolved_model_path = Path(__file__).resolve().parents[1] / resolved_model_path
+        if not resolved_model_path.is_file():
+            raise FileNotFoundError(
+                f"Trained TorchScript model not found: {resolved_model_path}. "
+                "Train a model first with `python3 -m model.train --data <dataset.npz>`."
+            )
 
-        if os.path.exists(model_path):
-            # Load pre-compiled TorchScript C++ model (bypasses Python graph overhead)
-            print(f"[Inference Engine] Loading compiled TorchScript model from {model_path}")
-            self.model = torch.jit.load(model_path, map_location=self.device)
-            self.model.eval()
-            
-            # Freeze the traced model to enable aggressive dead-code elimination
-            self.model = torch.jit.freeze(self.model)
-        else:
-            # Development fallback: Initialize and compile the raw model on the fly
-            print("[Inference Engine] Compiled model not found. Compiling raw model via JIT tracing...")
-            from model.architecture import DisruptionLSTM
-            raw_model = DisruptionLSTM().to(self.device).eval()
-            
-            # Create dummy tensor matching expected batch size, sequence length, and features
-            example_input = torch.randn(*self.input_shape, device=self.device)
-            
-            # Trace and compile model to TorchScript bytecode
-            self.model = torch.jit.trace(raw_model, example_input)
-            self.model = torch.jit.freeze(self.model)
+        print(f"[Inference Engine] Loading trained model from {resolved_model_path}")
+        self.model = torch.jit.load(str(resolved_model_path), map_location=self.device)
+        self.model.eval()
+        self.model = torch.jit.freeze(self.model)
 
-        # Warm-up pass to initialize hardware memory caches
-        print("[Inference Engine] Running Telum hardware warm-up pass...")
+        # Warm up the CPU model before processing the telemetry loop.
         with torch.inference_mode():
             self.model(torch.randn(*self.input_shape, device=self.device))
-        print("[Inference Engine] Ready for sub-millisecond real-time execution.")
+        print("[Inference Engine] Ready for CPU inference.")
 
     def predict_disruption_risk(self, normalized_sensor_tensor: torch.Tensor) -> float:
         """Executes zero-overhead forward pass.

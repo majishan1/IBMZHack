@@ -1,8 +1,6 @@
 import asyncio
-import os
 import time
 import torch
-import numpy as np
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -13,14 +11,10 @@ from model.inference import engine as inference_engine
 from logic.mitigation_rules import evaluate_mitigation
 
 # ==============================================================================
-# 1. ENVIRONMENT & HARDWARE CONFIGURATION
+# 1. CPU THREAD CONFIGURATION
 # ==============================================================================
-# Enable IBM Z Integrated Accelerator for AI (Telum processor)
-os.environ["ZAIUDEVICES"] = "1"
-
-# Optimize CPU thread allocation to prevent thread thrashing with Uvicorn
+# Bound CPU thread allocation to reduce contention with the asynchronous server.
 torch.set_num_threads(4)
-torch.set_num_interop_threads(2)
 
 app = FastAPI(title="IBM Z Plasma Disruption Predictor", version="1.0.0")
 

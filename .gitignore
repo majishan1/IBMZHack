@@ -1,1 +1,3 @@
 IBMZDatathon.pem
+checkpoints/
+*.npz
