@@ -1,0 +1,274 @@
+/* ==========================================================================
+   DARK THEME VARIABLES (Control Room Aesthetic)
+   ========================================================================== */
+:root {
+    --bg-main: #0a0e17;
+    --bg-panel: #111827;
+    --text-main: #e5e7eb;
+    --text-muted: #9ca3af;
+    --border-color: #374151;
+
+    --color-nominal: #10b981;
+    /* Neon Green */
+    --color-warning: #fbbf24;
+    /* Bright Yellow */
+    --color-critical: #ef4444;
+    /* Pure Red */
+    --color-abort: #991b1b;
+    /* Dark Red */
+}
+
+/* ==========================================================================
+   BASE STYLES
+   ========================================================================== */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    font-family: 'Consolas', 'Courier New', monospace;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+h1,
+h2,
+h3 {
+    letter-spacing: 1px;
+}
+
+/* ==========================================================================
+   HEADER
+   ========================================================================== */
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2rem;
+    background-color: var(--bg-panel);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.dashboard-header h1 {
+    font-size: 1.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.hardware-tag {
+    font-size: 0.8rem;
+    color: #60a5fa;
+    background: rgba(96, 165, 250, 0.1);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+}
+
+/* ==========================================================================
+   DASHBOARD GRID
+   ========================================================================== */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    padding: 1.5rem;
+    flex: 1;
+    overflow: hidden;
+}
+
+.panel {
+    background-color: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.panel h2 {
+    font-size: 1.2rem;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+/* ==========================================================================
+   STATUS & METRICS
+   ========================================================================== */
+.status-box {
+    text-align: center;
+    font-size: 2rem;
+    font-weight: bold;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    transition: background-color 0.3s ease;
+}
+
+.risk-container {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    background-color: rgba(0, 0, 0, 0.3);
+    padding: 1rem;
+    border-radius: 8px;
+}
+
+.risk-value {
+    font-size: 3rem;
+    font-weight: bold;
+    color: var(--text-main);
+}
+
+.charts-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.chart-box {
+    background-color: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 1rem;
+    height: 150px;
+    position: relative;
+}
+
+.chart-label {
+    position: absolute;
+    top: 0.5rem;
+    left: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+/* ==========================================================================
+   LOG PANEL
+   ========================================================================== */
+.log-container {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.log-entry {
+    background-color: rgba(0, 0, 0, 0.4);
+    border-left: 4px solid var(--border-color);
+    padding: 0.75rem 1rem;
+    border-radius: 0 4px 4px 0;
+    font-size: 0.9rem;
+}
+
+.log-time {
+    color: #60a5fa;
+    margin-right: 0.5rem;
+}
+
+.log-system {
+    font-weight: bold;
+    margin-right: 0.5rem;
+}
+
+.log-action {
+    color: var(--text-main);
+}
+
+.log-desc {
+    margin-top: 0.25rem;
+    font-size: 0.8rem;
+}
+
+/* ==========================================================================
+   DYNAMIC CLASSES (Controlled by app.js)
+   ========================================================================== */
+.bg-green {
+    background-color: var(--color-nominal);
+}
+
+.bg-yellow {
+    background-color: var(--color-warning);
+    color: #000;
+}
+
+.bg-red {
+    background-color: var(--color-critical);
+}
+
+.bg-dark-red {
+    background-color: var(--color-abort);
+}
+
+.text-white {
+    color: #ffffff;
+}
+
+.text-black {
+    color: #000000;
+}
+
+.text-green {
+    color: var(--color-nominal);
+}
+
+.text-muted {
+    color: var(--text-muted);
+}
+
+.severity-nominal {
+    border-left-color: var(--color-nominal);
+}
+
+.severity-warning {
+    border-left-color: var(--color-warning);
+}
+
+.severity-critical {
+    border-left-color: var(--color-critical);
+}
+
+.severity-abort {
+    border-left-color: var(--color-abort);
+}
+
+/* Animations for critical states */
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.6;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+@keyframes flash {
+
+    0%,
+    100% {
+        background-color: var(--color-abort);
+    }
+
+    50% {
+        background-color: #000000;
+    }
+}
+
+.animate-pulse {
+    animation: pulse 1s infinite;
+}
+
+.animate-flash {
+    animation: flash 0.5s infinite;
+}
