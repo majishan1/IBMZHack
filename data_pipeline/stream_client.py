@@ -1,5 +1,5 @@
 import numpy as np
-import MDSplus  # Requires: pip install mdsplus-3
+from mdsthin import MDSplus
 
 class RemoteTokamakStreamer:
     """Streams data slice-by-slice from remote MDSplus server into RAM."""
