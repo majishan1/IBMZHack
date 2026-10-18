@@ -1,0 +1,12 @@
+# Install these data-reader packages into the notebook's active Python environment:
+#     %pip install -r requirements-five-features.txt
+# Keep the IBM-provided PyTorch installation for model training.
+
+# Zarr reads selected compressed array chunks from FAIR MAST's remote stores.
+# Version 3 of the Python client can read this release's Zarr v3 archive format.
+zarr>=3,<4
+
+# fsspec supplies a filesystem-style API for remote URLs.
+# [http] includes aiohttp, which handles the HTTPS reads used by FsspecStore.
+# NumPy is supplied through Zarr's dependencies and holds decoded measurements.
+fsspec[http]>=2025.3
