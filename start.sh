@@ -13,7 +13,13 @@ export OMP_NUM_THREADS=4
 echo "[+] PyTorch OMP threads locked to: 4"
 
 # 2. CHECK FOR TRAINED MODEL
-if [ ! -f "checkpoints/compiled_lstm.pt" ]; then
+DEMO_MODE="${TOKAMAK_DEMO_MODE:-1}"
+case "$DEMO_MODE" in
+    0|false|FALSE|no|NO) NEED_MODEL=1 ;;
+    *) NEED_MODEL=0 ;;
+esac
+
+if [ "$NEED_MODEL" -eq 1 ] && [ ! -f "checkpoints/compiled_lstm.pt" ]; then
     if [ -z "${TOKAMAK_TRAINING_DATA:-}" ]; then
         echo "[-] No trained model or TOKAMAK_TRAINING_DATA provided."
         echo "[!] Train first with: python3 -m model.train --data <dataset.npz>"

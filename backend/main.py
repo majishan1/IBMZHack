@@ -11,6 +11,8 @@ DEMO_MODE = os.getenv("TOKAMAK_DEMO_MODE", "1").lower() not in {
     "false",
     "no",
 }
+DEMO_SPEEDS = (0.5, 1.0, 1.5, 2.0)
+demo_control = {"paused": False, "speed": 1.0}
 
 app = FastAPI(title="IBM Z Plasma Disruption Predictor", version="1.0.0")
 
@@ -100,6 +102,15 @@ async def plasma_monitoring_loop():
                 "timestamp": time.time(),
                 "risk": float(risk_score),
                 "mode": "live",
+                "state": max(
+                    (action["severity"] for action in suggested_actions),
+                    key=lambda severity: {
+                        "NOMINAL": 0,
+                        "WARNING": 1,
+                        "CRITICAL": 2,
+                        "ABORT": 3,
+                    }[severity],
+                ),
                 "actions": suggested_actions,
                 "telemetry": {
                     "ip_current": float(raw_sensor_batch[0, -1, 0]),
@@ -125,17 +136,34 @@ async def plasma_monitoring_loop():
 async def demo_monitoring_loop(evaluate_mitigation):
     """Stream randomized, bounded synthetic diagnostics for demonstration only."""
     simulator = SyntheticTokamak()
+    last_payload = None
     while True:
+        if demo_control["paused"]:
+            if last_payload is not None:
+                paused_payload = {
+                    **last_payload,
+                    "timestamp": time.time(),
+                    "paused": True,
+                    "speed": demo_control["speed"],
+                }
+                await manager.broadcast(paused_payload)
+            await asyncio.sleep(0.1)
+            continue
+
         telemetry, risk_score = simulator.sample()
         payload = {
             "timestamp": time.time(),
             "risk": risk_score,
             "mode": "demo",
+            "state": simulator.state.upper(),
+            "paused": demo_control["paused"],
+            "speed": demo_control["speed"],
             "actions": evaluate_mitigation(risk_score),
             "telemetry": telemetry,
         }
+        last_payload = payload
         await manager.broadcast(payload)
-        await asyncio.sleep(0.02)
+        await asyncio.sleep(0.02 / demo_control["speed"])
 
 
 class SyntheticTokamak:
@@ -144,7 +172,6 @@ class SyntheticTokamak:
     def __init__(self):
         self.random = random.Random()
         self.state = "nominal"
-        self.state_age = 0
         self.step = 0
         self.risk = 0.12
         self.signals = {
@@ -156,27 +183,15 @@ class SyntheticTokamak:
         }
 
     def _advance_state(self):
-        self.state_age += 1
-        if self.state_age < 250:
-            return
-
-        transition_roll = self.random.random()
-        if self.state == "nominal" and transition_roll < 0.0007:
-            self.state = "tearing"
-            self.state_age = 0
-        elif self.state == "tearing":
-            if transition_roll < 0.002:
-                self.state = "critical"
-                self.state_age = 0
-            elif transition_roll < 0.012:
-                self.state = "nominal"
-                self.state_age = 0
-        elif self.state == "critical" and transition_roll < 0.01:
-            self.state = "recovery"
-            self.state_age = 0
-        elif self.state == "recovery" and transition_roll < 0.01:
+        cycle_step = self.step % 500
+        if cycle_step < 400:
             self.state = "nominal"
-            self.state_age = 0
+        elif cycle_step < 425:
+            self.state = "tearing"
+        elif cycle_step < 475:
+            self.state = "critical"
+        else:
+            self.state = "recovery"
 
     def sample(self):
         self.step += 1
@@ -218,7 +233,10 @@ class SyntheticTokamak:
 
         target_risk = (0.12, 0.52, 0.82)[severity]
         risk_noise = self.random.gauss(0.0, 0.008)
-        self.risk = min(0.99, max(0.01, self.risk + 0.04 * (target_risk - self.risk) + risk_noise))
+        self.risk = min(
+            0.99,
+            max(0.01, self.risk + 0.2 * (target_risk - self.risk) + risk_noise),
+        )
 
         telemetry = dict(self.signals)
         telemetry["magnetic_n1"] += oscillation * (0.0006 + severity * 0.001)
@@ -255,7 +273,39 @@ async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
-            await websocket.receive_text()
+            control = await websocket.receive_json()
+            if not isinstance(control, dict) or control.get("type") != "control":
+                await websocket.send_json(
+                    {"type": "error", "message": "Expected a telemetry control message."}
+                )
+                continue
+
+            paused = control.get("paused")
+            speed = control.get("speed")
+            if (
+                not isinstance(paused, bool)
+                or isinstance(speed, bool)
+                or not isinstance(speed, (int, float))
+                or speed not in DEMO_SPEEDS
+            ):
+                await websocket.send_json(
+                    {
+                        "type": "error",
+                        "message": "Controls require a boolean paused value and a supported speed.",
+                    }
+                )
+                continue
+            if not DEMO_MODE:
+                await websocket.send_json(
+                    {
+                        "type": "error",
+                        "message": "Playback controls are available only in demo mode.",
+                    }
+                )
+                continue
+
+            demo_control["paused"] = paused
+            demo_control["speed"] = float(speed)
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 

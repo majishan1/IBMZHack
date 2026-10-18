@@ -1,1 +1,6 @@
+fastapi
+mdsthin
+numpy
+torch
+uvicorn[standard]
 websockets>=13.0

@@ -17,6 +17,16 @@
         <div class="header-status">
             WebSocket: <span id="ws-status" class="text-green">CONNECTING...</span>
         </div>
+        <div class="playback-controls" aria-label="Demo playback controls">
+            <button id="pause-button" type="button" disabled>Pause</button>
+            <label for="speed-select">Speed</label>
+            <select id="speed-select" disabled>
+                <option value="0.5">0.5x</option>
+                <option value="1" selected>1x</option>
+                <option value="1.5">1.5x</option>
+                <option value="2">2x</option>
+            </select>
+        </div>
     </header>
 
     <main class="dashboard-grid">
@@ -34,7 +44,7 @@
             </div>
 
             <div class="charts-container">
-                <h3>TELEMETRY (500ms DISPLAY REFRESH)</h3>
+                <h3>LIVE DIAGNOSTICS (500ms DISPLAY REFRESH)</h3>
                 <div class="chart-box">
                     <canvas id="ip-chart"></canvas>
                     <div class="chart-label">Plasma Current (Ip)</div>
@@ -42,6 +52,18 @@
                 <div class="chart-box">
                     <canvas id="te-chart"></canvas>
                     <div class="chart-label">Electron Temperature (Te)</div>
+                </div>
+                <div class="chart-box">
+                    <canvas id="magnetic-chart"></canvas>
+                    <div class="chart-label">Magnetic Fluctuation (n=1)</div>
+                </div>
+                <div class="chart-box">
+                    <canvas id="density-chart"></canvas>
+                    <div class="chart-label">Electron Density (Ne)</div>
+                </div>
+                <div class="chart-box">
+                    <canvas id="power-chart"></canvas>
+                    <div class="chart-label">Radiated Power (Prad)</div>
                 </div>
             </div>
         </section>

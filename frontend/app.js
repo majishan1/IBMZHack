@@ -4,6 +4,11 @@
 let latestPayload = null;
 let currentSeverityState = "NOMINAL";
 let hasReceivedTelemetry = false;
+let websocket = null;
+let isPaused = false;
+let playbackSpeed = 1;
+let controlsInitialized = false;
+let controlPending = false;
 
 // DOM Elements
 const riskScoreDisplay = document.getElementById("risk-score");
@@ -11,7 +16,16 @@ const statusIndicator = document.getElementById("status-indicator");
 const actionLogContainer = document.getElementById("action-log");
 const websocketStatus = document.getElementById("ws-status");
 const modeTag = document.getElementById("mode-tag");
-const history = { ip: [], te: [] };
+const pauseButton = document.getElementById("pause-button");
+const speedSelect = document.getElementById("speed-select");
+const chartSeries = [
+    { key: "ip_current", canvas: "ip-chart", label: "Plasma Current (Ip)", color: "#38bdf8" },
+    { key: "electron_temp", canvas: "te-chart", label: "Electron Temperature (Te)", color: "#fbbf24" },
+    { key: "magnetic_n1", canvas: "magnetic-chart", label: "Magnetic Fluctuation (n=1)", color: "#c084fc" },
+    { key: "density", canvas: "density-chart", label: "Electron Density (Ne)", color: "#34d399" },
+    { key: "radiated_power", canvas: "power-chart", label: "Radiated Power (Prad)", color: "#fb7185" },
+];
+const history = Object.fromEntries(chartSeries.map(series => [series.key, []]));
 const historyLimit = 60;
 
 // ==============================================================================
@@ -19,31 +33,47 @@ const historyLimit = 60;
 // ==============================================================================
 function connectWebSocket() {
     // Connect to the FastAPI backend
-    const ws = new WebSocket("ws://localhost:8000/ws/telemetry");
+    websocket = new WebSocket("ws://localhost:8000/ws/telemetry");
 
-    ws.onopen = () => {
+    websocket.onopen = () => {
         websocketStatus.innerText = "CONNECTED";
         websocketStatus.className = "text-green";
+        controlsInitialized = false;
+        controlPending = false;
         console.log("[WebSocket] Connected to backend");
     };
 
-    ws.onmessage = (event) => {
+    websocket.onmessage = (event) => {
         // Silently update the memory state as fast as packets arrive
         try {
-            latestPayload = JSON.parse(event.data);
+            const payload = JSON.parse(event.data);
+            if (payload.type === "error") {
+                controlPending = false;
+                controlsInitialized = false;
+                console.error("[WebSocket] Control error:", payload.message);
+                return;
+            }
+            latestPayload = payload;
+            if (
+                controlPending
+                && payload.paused === isPaused
+                && Number(payload.speed) === playbackSpeed
+            ) {
+                controlPending = false;
+            }
         } catch (error) {
             console.error("[WebSocket] Ignoring invalid telemetry payload", error);
         }
     };
 
-    ws.onclose = () => {
+    websocket.onclose = () => {
         websocketStatus.innerText = "DISCONNECTED - RECONNECTING";
         websocketStatus.className = "text-muted";
         console.warn("[WebSocket] Disconnected. Reconnecting in 2s...");
         setTimeout(connectWebSocket, 2000);
     };
 
-    ws.onerror = () => {
+    websocket.onerror = () => {
         websocketStatus.innerText = "CONNECTION ERROR";
         websocketStatus.className = "text-muted";
     };
@@ -63,8 +93,20 @@ function updateDashboard() {
     const riskPercentage = (latestPayload.risk * 100).toFixed(1);
     riskScoreDisplay.innerText = `${riskPercentage}%`;
     modeTag.innerText = latestPayload.mode === "demo"
-        ? "DEMO DATA - SYNTHETIC, NOT FOR CONTROL"
+        ? "by team Working Title"
         : "LIVE MODEL OUTPUT";
+    pauseButton.disabled = latestPayload.mode !== "demo";
+    speedSelect.disabled = latestPayload.mode !== "demo";
+    if (
+        latestPayload.mode === "demo"
+        && (!controlsInitialized || !controlPending)
+    ) {
+        isPaused = Boolean(latestPayload.paused);
+        playbackSpeed = Number(latestPayload.speed) || 1;
+        pauseButton.innerText = isPaused ? "Resume" : "Pause";
+        speedSelect.value = String(playbackSpeed);
+        controlsInitialized = true;
+    }
 
     // 2. Determine Highest Severity in Current Actions
     const actions = latestPayload.actions;
@@ -79,15 +121,24 @@ function updateDashboard() {
 
     // 4. Update Automated Log (Only on state change to prevent spam)
     if (highestSeverity !== currentSeverityState) {
-        logMitigationActions(actions, highestSeverity, latestPayload.timestamp);
+        if (highestSeverity === "NOMINAL" && currentSeverityState !== "NOMINAL") {
+            logRecovery(latestPayload.timestamp);
+        } else {
+            logMitigationActions(actions, highestSeverity, latestPayload.timestamp);
+        }
         currentSeverityState = highestSeverity;
     }
 
     const telemetry = latestPayload.telemetry;
-    appendHistory(history.ip, telemetry.ip_current);
-    appendHistory(history.te, telemetry.electron_temp);
-    drawTelemetryChart("ip-chart", history.ip, "Plasma Current (Ip)", "#38bdf8");
-    drawTelemetryChart("te-chart", history.te, "Electron Temperature (Te)", "#fbbf24");
+    for (const series of chartSeries) {
+        appendHistory(history[series.key], telemetry[series.key]);
+        drawTelemetryChart(
+            series.canvas,
+            history[series.key],
+            series.label,
+            series.color,
+        );
+    }
 }
 
 // ==============================================================================
@@ -185,6 +236,43 @@ function logMitigationActions(actions, severity, unixTimestamp) {
         }
     });
 }
+
+function logRecovery(unixTimestamp) {
+    const logEntry = document.createElement("div");
+    logEntry.className = "log-entry severity-nominal";
+    const timeString = new Date(unixTimestamp * 1000).toISOString().substr(11, 12);
+    logEntry.innerHTML = `
+        <span class="log-time">[${timeString}]</span>
+        <span class="log-system">SYSTEM:</span>
+        <span class="log-action">RETURNED_TO_NOMINAL</span>
+        <div class="log-desc text-muted">Risk has returned to the nominal range.</div>
+    `;
+    actionLogContainer.prepend(logEntry);
+    while (actionLogContainer.children.length > 100) {
+        actionLogContainer.lastElementChild.remove();
+    }
+}
+
+function sendPlaybackControl() {
+    if (!websocket || websocket.readyState !== WebSocket.OPEN) return;
+    controlPending = true;
+    websocket.send(JSON.stringify({
+        type: "control",
+        paused: isPaused,
+        speed: playbackSpeed,
+    }));
+}
+
+pauseButton.addEventListener("click", () => {
+    isPaused = !isPaused;
+    pauseButton.innerText = isPaused ? "Resume" : "Pause";
+    sendPlaybackControl();
+});
+
+speedSelect.addEventListener("change", () => {
+    playbackSpeed = Number(speedSelect.value);
+    sendPlaybackControl();
+});
 
 // ==============================================================================
 // 5. INITIALIZATION
